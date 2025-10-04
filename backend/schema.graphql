@@ -1,0 +1,72 @@
+type TokenApproval @entity {
+  id: ID!
+  owner: String!
+  spender: String!
+  token: String!
+  amount: String!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: String!
+  isRisky: Boolean!
+  riskReason: String
+  status: ApprovalStatus!
+}
+
+enum ApprovalStatus {
+  ACTIVE
+  REVOKED
+}
+
+type TokenTransfer @entity {
+  id: ID!
+  from: String!
+  to: String!
+  token: String!
+  amount: String!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: String!
+  isSpam: Boolean!
+}
+
+type WalletHealth @entity {
+  id: ID!
+  walletAddress: String!
+  healthScore: Int!
+  riskyApprovals: Int!
+  spamTokens: Int!
+  dustTokenCount: Int!
+  lastUpdated: BigInt!
+}
+
+type TokenMetadata @entity {
+  id: ID!
+  address: String!
+  name: String
+  symbol: String
+  decimals: Int
+  isVerified: Boolean!
+  hasLiquidity: Boolean!
+}
+
+type AutomationAction @entity {
+  id: ID!
+  wallet: String!
+  actionType: ActionType!
+  target: String!
+  timestamp: BigInt!
+  transactionHash: String
+  status: ActionStatus!
+}
+
+enum ActionType {
+  AUTO_REVOKE
+  SPAM_CLEANUP
+  DUST_CONSOLIDATION
+}
+
+enum ActionStatus {
+  PENDING
+  EXECUTED
+  FAILED
+}

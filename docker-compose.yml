@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_MONAD_RPC_URL=https://testnet.monad.xyz
+      - NEXT_PUBLIC_MONAD_CHAIN_ID=41454
+      - NEXT_PUBLIC_API_URL=http://backend:3001
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - MONAD_RPC_URL=https://testnet.monad.xyz
+      - ENVIO_API_URL=http://envio:8080/v1/graphql
+      - PORT=3001
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  envio:
+    image: envio/envio:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+    working_dir: /app
+    command: envio dev
+
+networks:
+  default:
+    name: wallet-autopilot
