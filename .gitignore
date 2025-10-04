@@ -53,3 +53,7 @@ playwright/.cache/
 tmp/
 temp/
 *.tmp
+
+/docs
+BUILD_SUMMARY.md
+integration_summary.md
