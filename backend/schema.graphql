@@ -1,72 +1,130 @@
+# Token Approval Events (for auto-revoke feature)
 type TokenApproval @entity {
   id: ID!
   owner: String!
   spender: String!
-  token: String!
-  amount: String!
-  timestamp: BigInt!
+  tokenAddress: String!
+  amount: BigInt!
+
+  # Metadata
   blockNumber: BigInt!
+  blockTimestamp: BigInt!
   transactionHash: String!
+
+  # Risk assessment
+  isUnlimited: Boolean!
   isRisky: Boolean!
-  riskReason: String
+  lastUsedAt: BigInt
+
+  # Status tracking
   status: ApprovalStatus!
+  revokedAt: BigInt
+  revokedTxHash: String
 }
 
 enum ApprovalStatus {
   ACTIVE
   REVOKED
+  EXPIRED
 }
 
+# Token Transfer Events (for spam detection)
 type TokenTransfer @entity {
   id: ID!
   from: String!
   to: String!
-  token: String!
-  amount: String!
-  timestamp: BigInt!
+  tokenAddress: String!
+  amount: BigInt!
+
   blockNumber: BigInt!
+  blockTimestamp: BigInt!
   transactionHash: String!
-  isSpam: Boolean!
+
+  # Spam detection flags
+  isPotentialSpam: Boolean!
+  isAirdrop: Boolean!
 }
 
-type WalletHealth @entity {
-  id: ID!
+# Wallet Token Balances (for dust tracking)
+type WalletTokenBalance @entity {
+  id: ID!  # Format: wallet-token
   walletAddress: String!
-  healthScore: Int!
-  riskyApprovals: Int!
-  spamTokens: Int!
-  dustTokenCount: Int!
-  lastUpdated: BigInt!
+  tokenAddress: String!
+  balance: BigInt!
+
+  # USD value estimation
+  estimatedValueUSD: Float
+  isDust: Boolean!  # < $1
+
+  lastUpdatedBlock: BigInt!
+  lastUpdatedTimestamp: BigInt!
 }
 
+# Token Metadata (for displaying token info)
 type TokenMetadata @entity {
-  id: ID!
+  id: ID!  # Token address
   address: String!
   name: String
   symbol: String
-  decimals: Int
+  decimals: Int!
+
+  # Spam detection
   isVerified: Boolean!
+  isSpam: Boolean!
   hasLiquidity: Boolean!
+
+  # Activity tracking
+  totalHolders: Int!
+  totalTransfers: BigInt!
+  firstSeenBlock: BigInt!
 }
 
-type AutomationAction @entity {
+# Automated Actions Log (track what agent does)
+type AutomatedAction @entity {
   id: ID!
-  wallet: String!
+  walletAddress: String!
   actionType: ActionType!
-  target: String!
-  timestamp: BigInt!
-  transactionHash: String
+
+  # Details
+  tokenAddress: String
+  targetAddress: String  # Spender for revokes
+  amount: BigInt
+
+  # Execution
+  transactionHash: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  gasUsed: BigInt!
+
   status: ActionStatus!
+  errorMessage: String
 }
 
 enum ActionType {
-  AUTO_REVOKE
-  SPAM_CLEANUP
-  DUST_CONSOLIDATION
+  REVOKE_APPROVAL
+  CONSOLIDATE_DUST
+  REMOVE_SPAM
 }
 
 enum ActionStatus {
   PENDING
-  EXECUTED
+  COMPLETED
   FAILED
+}
+
+# Wallet Health Metrics (aggregated view)
+type WalletHealth @entity {
+  id: ID!  # Wallet address
+  walletAddress: String!
+
+  # Metrics
+  activeApprovalsCount: Int!
+  riskyApprovalsCount: Int!
+  spamTokensCount: Int!
+  dustTokensCount: Int!
+  healthScore: Int!  # 0-100
+
+  # Last update
+  lastCalculatedAt: BigInt!
+  lastActionAt: BigInt
 }

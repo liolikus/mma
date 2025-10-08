@@ -1,32 +1,43 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+
 name: WalletAutopilot
-description: Wallet health monitoring and automation indexer
-ecosystem: evm
+description: Indexer for wallet health monitoring and automation
+
+# Enable for faster processing
+preload_handlers: true
+
+# Store raw events for debugging
+raw_events: true
+
+# Address format for Ethereum addresses: 'checksum' or 'lowercase'
+# using lowercase addresses is slightly faster
+address_format: lowercase
+
+# Global contract definitions
+contracts:
+  # Standard ERC20 tokens for approval monitoring
+  - name: ERC20Token
+    abi_file_path: ./abis/ERC20.json
+    handler: ./src/EventHandlers.js
+    events:
+      - event: "Approval(address indexed owner, address indexed spender, uint256 value)"
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
 
 networks:
-  - id: 41454
+  - id: 41454  # Monad Testnet
+    start_block: 0  # Will find first relevant block automatically
     rpc_config:
-      url: https://testnet.monad.xyz
-    start_block: 0
+      url: https://testnet-rpc.monad.xyz
     contracts:
+      # We'll dynamically add token addresses as we discover them
+      # For now, add placeholder addresses - replace with actual deployed tokens
       - name: ERC20Token
-        abi_file_path: ./abis/ERC20.json
-        handler: src/handlers/erc20Handler.ts
         address:
+          # Add known token addresses here when available
+          # Example format:
           - "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701"
           - "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea"
           - "0xb2f82D0f38dc453D596Ad40A37799446Cc89274A"
           - "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D"
           - "0xE0590015A873bF326bd645c3E1266d4db41C4E6B"
 
-        events:
-          - event: Approval(address indexed owner, address indexed spender, uint256 value)
-          - event: Transfer(address indexed from, address indexed to, uint256 value)
-
-field_selection:
-  transaction_fields:
-    - "from"
-    - "to"
-    - "hash"
-    - "transactionIndex"
-
-rollback_on_reorg: true
