@@ -2,9 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Always document any modified patterns or snippets after making changes.
+See `/docs` folder for comprehensive guides:
+- `AgentService.md` - Backend architecture and implementation
+- `Envio.md` - Indexer setup and schema design
+- `Frontend.md` - React 19 patterns and components
+- `Metamask.md` - Smart Accounts and delegation integration
+- `Monad.md` - Network configuration and deployment
+- `claude.md` - Original project context (more detailed than this file)
+
 ## Project Overview
 
 **Wallet Autopilot** is a wallet health management dashboard and automation system for Monad testnet that uses MetaMask Smart Accounts with Delegations to automatically manage wallet hygiene. The agent performs maintenance tasks (revoking risky approvals, cleaning spam tokens, consolidating dust) on behalf of users through scoped delegations.
+
 
 ## Architecture
 
@@ -127,8 +137,9 @@ docker-compose up  # Run entire stack
 ## Key Implementation Details
 
 ### Monad Testnet Configuration
-- **Chain ID**: 41454
-- **RPC**: https://testnet.monad.xyz
+- **Chain ID**: 10143 (NOT 41454!)
+- **RPC**: https://testnet-rpc.monad.xyz
+- **HyperSync** (for Envio indexing): https://monad-testnet.hypersync.xyz
 - **Explorer**: https://explorer.testnet.monad.xyz
 - **Native Token**: MON
 - Get testnet MON from official faucet
@@ -146,8 +157,8 @@ The project uses MetaMask's Delegation Toolkit (`@metamask/delegation-toolkit`) 
 
 ### Envio Indexer Integration
 Envio tracks ERC20 events in real-time:
-- **Config**: `backend/config.yaml` - Defines contracts, events, network
-- **Handler**: `backend/src/handlers/erc20Handler.ts` - Processes Approval/Transfer events
+- **Config**: `backend/config.yaml` - Defines contracts, events, network (Chain ID: 10143, HyperSync URL)
+- **Handler**: `backend/src/EventHandlers.js` - Processes Approval/Transfer events
 - **Service**: `backend/src/services/envio.ts` - GraphQL queries to fetch approvals
 - **GraphQL API**: Runs locally on `http://localhost:8080/v1/graphql` when using `pnpm envio dev`
 
@@ -155,6 +166,14 @@ Envio tracks ERC20 events in real-time:
 - `TokenApproval` - Tracks approvals with risk flags
 - `TokenTransfer` - Monitors transfers for spam detection
 - `WalletHealth` - Aggregated health metrics
+
+**Event Handler Structure** (IMPORTANT):
+Event objects use nested fields:
+- `event.block.number` (NOT `event.blockNumber`)
+- `event.block.timestamp` (NOT `event.timestamp`)
+- `event.transaction.hash` (NOT `event.transactionHash`)
+- `event.params` - Event-specific parameters
+- `event.srcAddress` - Contract address
 
 ### Agent Monitoring & Execution
 The agent runs autonomously:
@@ -186,18 +205,24 @@ Backend exposes Express API on port 3001:
 
 ### Frontend (`frontend/.env.local`)
 ```env
-NEXT_PUBLIC_MONAD_RPC_URL=https://testnet.monad.xyz
-NEXT_PUBLIC_MONAD_CHAIN_ID=41454
+NEXT_PUBLIC_MONAD_RPC_URL=https://testnet-rpc.monad.xyz
+NEXT_PUBLIC_MONAD_CHAIN_ID=10143
 NEXT_PUBLIC_AGENT_ADDRESS=0x...  # Agent's address
 NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
 
 ### Backend (`backend/.env`)
 ```env
-MONAD_RPC_URL=https://testnet.monad.xyz
+# Monad Network
+MONAD_RPC_URL=https://testnet-rpc.monad.xyz
 AGENT_PRIVATE_KEY=0x...  # Agent's private key (keep secure!)
 AGENT_ADDRESS=0x...      # Agent's address
+
+# Envio Configuration
+ENVIO_API_TOKEN=your-api-token-here  # Get from https://envio.dev/app/api-tokens
 ENVIO_API_URL=http://localhost:8080/v1/graphql
+
+# Server
 PORT=3001
 ```
 

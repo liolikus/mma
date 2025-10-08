@@ -31,17 +31,17 @@ ERC20Token.Approval.handler(async ({ event, context }) => {
     tokenAddress,
     amount: value,
 
-    blockNumber: BigInt(event.block.number),
-    blockTimestamp: BigInt(event.block.timestamp),
-    transactionHash: event.transaction.hash,
+    blockNumber: BigInt(event.block?.number || 0),
+    blockTimestamp: BigInt(event.block?.timestamp || 0),
+    transactionHash: event.transaction?.hash || `${event.srcAddress}-${event.logIndex}`,
 
     isUnlimited,
     isRisky,
     lastUsedAt: undefined,
 
     status: value > 0n ? "ACTIVE" : "REVOKED",
-    revokedAt: value === 0n ? BigInt(event.block.timestamp) : undefined,
-    revokedTxHash: value === 0n ? event.transaction.hash : undefined,
+    revokedAt: value === 0n ? BigInt(event.block?.timestamp || 0) : undefined,
+    revokedTxHash: value === 0n ? (event.transaction?.hash || `${event.srcAddress}-${event.logIndex}`) : undefined,
   };
 
   context.TokenApproval.set(approval);
@@ -50,7 +50,7 @@ ERC20Token.Approval.handler(async ({ event, context }) => {
   await updateWalletHealth(owner.toLowerCase(), context);
 
   // Update token metadata
-  await updateTokenMetadata(tokenAddress, event.block.number, context);
+  await updateTokenMetadata(tokenAddress, event.block?.number || 0, context);
 });
 
 /**
@@ -61,14 +61,15 @@ ERC20Token.Transfer.handler(async ({ event, context }) => {
   const { from, to, value } = event.params;
   const tokenAddress = event.srcAddress.toLowerCase();
 
-  // Create transfer record
-  const transferId = `${event.transaction.hash}-${event.logIndex}`;
+  // Debug: Log event structure to understand available fields
+  console.log("Event keys:", Object.keys(event));
+  console.log("Event:", JSON.stringify(event, (key, val) => typeof val === 'bigint' ? val.toString() : val, 2));
+
+  // Create transfer record - use logIndex as fallback if no transaction hash
+  const transferId = `${event.srcAddress}-${event.logIndex}-${event.chainId}`;
 
   // Detect potential spam (received without interaction)
   const isAirdrop = from === "0x0000000000000000000000000000000000000000";
-  const isPotentialSpam =
-    isAirdrop ||
-    await isAirdropTransfer(to, event.transaction.from, context);
 
   const transfer = {
     id: transferId,
@@ -76,10 +77,10 @@ ERC20Token.Transfer.handler(async ({ event, context }) => {
     to: to.toLowerCase(),
     tokenAddress,
     amount: value,
-    blockNumber: BigInt(event.block.number),
-    blockTimestamp: BigInt(event.block.timestamp),
-    transactionHash: event.transaction.hash,
-    isPotentialSpam,
+    blockNumber: BigInt(event.block?.number || 0),
+    blockTimestamp: BigInt(event.block?.timestamp || 0),
+    transactionHash: event.transaction?.hash || `${event.srcAddress}-${event.logIndex}`,
+    isPotentialSpam: isAirdrop,
     isAirdrop,
   };
 
@@ -87,14 +88,14 @@ ERC20Token.Transfer.handler(async ({ event, context }) => {
 
   // Update token balances for dust tracking
   if (from !== "0x0000000000000000000000000000000000000000") {
-    await updateWalletBalance(from.toLowerCase(), tokenAddress, event.block, context);
+    await updateWalletBalance(from.toLowerCase(), tokenAddress, event.block?.number || 0, event.block?.timestamp || 0, context);
   }
   if (to !== "0x0000000000000000000000000000000000000000") {
-    await updateWalletBalance(to.toLowerCase(), tokenAddress, event.block, context);
+    await updateWalletBalance(to.toLowerCase(), tokenAddress, event.block?.number || 0, event.block?.timestamp || 0, context);
   }
 
   // Update token metadata
-  await updateTokenMetadata(tokenAddress, event.block.number, context);
+  await updateTokenMetadata(tokenAddress, event.block?.number || 0, context);
 });
 
 /**
@@ -183,7 +184,7 @@ async function updateTokenMetadata(tokenAddress, blockNumber, context) {
 /**
  * Update wallet token balance
  */
-async function updateWalletBalance(walletAddress, tokenAddress, block, context) {
+async function updateWalletBalance(walletAddress, tokenAddress, blockNumber, blockTimestamp, context) {
   const balanceId = `${walletAddress}-${tokenAddress}`;
 
   // TODO: Query actual balance from contract
@@ -196,8 +197,8 @@ async function updateWalletBalance(walletAddress, tokenAddress, block, context) 
     balance: 0n,  // Would need to query contract
     estimatedValueUSD: undefined,
     isDust: false,
-    lastUpdatedBlock: BigInt(block.number),
-    lastUpdatedTimestamp: BigInt(block.timestamp),
+    lastUpdatedBlock: BigInt(blockNumber),
+    lastUpdatedTimestamp: BigInt(blockTimestamp),
   };
 
   context.WalletTokenBalance.set(balance);

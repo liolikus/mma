@@ -24,10 +24,10 @@ contracts:
       - event: "Transfer(address indexed from, address indexed to, uint256 value)"
 
 networks:
-  - id: 41454  # Monad Testnet
+  - id: 10143  # Monad Testnet
     start_block: 0  # Will find first relevant block automatically
-    rpc_config:
-      url: https://testnet-rpc.monad.xyz
+    hypersync_config:
+      url: https://monad-testnet.hypersync.xyz
     contracts:
       # We'll dynamically add token addresses as we discover them
       # For now, add placeholder addresses - replace with actual deployed tokens

@@ -11,7 +11,7 @@ Monad is a high-performance EVM-compatible Layer 1 blockchain. This guide covers
 ```typescript
 // Network Configuration
 export const monadTestnet = {
-  id: 41454,
+  id: 10143,  // Correct Chain ID for Monad Testnet
   name: 'Monad Testnet',
   network: 'monad-testnet',
   nativeCurrency: {
@@ -20,12 +20,12 @@ export const monadTestnet = {
     decimals: 18,
   },
   rpcUrls: {
-    default: { 
-      http: ['https://testnet.monad.xyz'],
-      webSocket: ['wss://testnet.monad.xyz']
+    default: {
+      http: ['https://testnet-rpc.monad.xyz'],
+      webSocket: ['wss://testnet-rpc.monad.xyz']
     },
-    public: { 
-      http: ['https://testnet.monad.xyz'] 
+    public: {
+      http: ['https://testnet-rpc.monad.xyz']
     },
   },
   blockExplorers: {
@@ -43,10 +43,13 @@ export const monadTestnet = {
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| RPC HTTP | `https://testnet.monad.xyz` | Transaction submission & queries |
-| RPC WebSocket | `wss://testnet.monad.xyz` | Real-time event subscriptions |
+| RPC HTTP | `https://testnet-rpc.monad.xyz` | Transaction submission & queries |
+| HyperSync (Indexing) | `https://monad-testnet.hypersync.xyz` | Fast event indexing (recommended for Envio) |
+| HyperRPC | `https://monad-testnet.rpc.hypersync.xyz` | Alternative RPC endpoint |
 | Block Explorer | `https://explorer.testnet.monad.xyz` | Transaction & contract verification |
 | Faucet | TBD | Get testnet MON tokens |
+
+**Note:** Chain ID is **10143**, not 41454. Always verify you're using the correct chain ID!
 
 ---
 

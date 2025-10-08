@@ -4,6 +4,18 @@
 
 Envio HyperIndex is a real-time blockchain indexer that will power the Wallet Autopilot monitoring system. It tracks on-chain events like token approvals, transfers, spam tokens, and dust balances, feeding this data to the automation agent.
 
+## Quick Reference: Monad Testnet Configuration
+
+```yaml
+# Critical values for Monad Testnet
+Chain ID: 10143              # NOT 41454!
+HyperSync URL: https://monad-testnet.hypersync.xyz
+RPC URL: https://testnet-rpc.monad.xyz
+HyperRPC URL: https://monad-testnet.rpc.hypersync.xyz
+```
+
+**Always use HyperSync for best performance!**
+
 ## Prerequisites
 
 ```bash
@@ -79,47 +91,37 @@ Create or modify `config.yaml` for Wallet Autopilot:
 name: WalletAutopilot
 description: Indexer for wallet health monitoring and automation
 
-# Enable for better multichain performance
-unordered_multichain_mode: false  # Single chain for now
-
 # Enable for faster processing
 preload_handlers: true
 
 # Store raw events for debugging
 raw_events: true
 
+# Address format - lowercase is faster
+address_format: lowercase
+
 contracts:
   # Standard ERC20 tokens for approval monitoring
   - name: ERC20Token
-    handler: src/EventHandlers.ts
+    abi_file_path: ./abis/ERC20.json
+    handler: ./src/EventHandlers.js
     events:
       - event: "Approval(address indexed owner, address indexed spender, uint256 value)"
       - event: "Transfer(address indexed from, address indexed to, uint256 value)"
-    field_selection:
-      transaction_fields:
-        - hash
-        - from
-        - to
-        - gasUsed
-      block_fields:
-        - timestamp
-        - number
 
 networks:
-  - id: 41454  # Monad Testnet
-    name: monad-testnet
-    start_block: 0  # HyperSync will find first relevant block
-    rpc_config:
-      url: https://testnet.monad.xyz
+  - id: 10143  # Monad Testnet (IMPORTANT: Use 10143, not 41454)
+    start_block: 0  # HyperSync will find first relevant block automatically
+    hypersync_config:
+      url: https://monad-testnet.hypersync.xyz  # Use HyperSync for faster indexing
     contracts:
-      # We'll dynamically add token addresses as we discover them
+      # Add token addresses you want to track
       - name: ERC20Token
         address:
-          # Add known token addresses here
-          - "0x1234567890123456789012345678901234567890"  # Example USDC
-          - "0x2234567890123456789012345678901234567890"  # Example DAI
-        # Override start block if token deployed later
-        # start_block: 1000000
+          # Add known token addresses here when available
+          # Example deployed tokens on Monad testnet:
+          - "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701"
+          - "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea"
 ```
 
 ### 2.2 Environment Variables
@@ -129,24 +131,32 @@ Create `.env` file for configuration:
 ```bash
 # backend/.env
 
-# Monad Network
-ENVIO_CHAIN_ID=41454
-ENVIO_RPC_URL=https://testnet.monad.xyz
+# Envio API Token (get from https://envio.dev/app/api-tokens)
+ENVIO_API_TOKEN=your-api-token-here
 
-# Hasura Admin
+# Hasura Admin Secret
 HASURA_ADMIN_SECRET=testing
 
-# Optional: Custom contract addresses
-ENVIO_USDC_ADDRESS=0x...
-ENVIO_WETH_ADDRESS=0x...
+# Optional: Custom PostgreSQL settings
+ENVIO_PG_PORT=5433
+ENVIO_PG_PASSWORD=testing
+ENVIO_PG_USER=postgres
+ENVIO_PG_DATABASE=envio-dev
+HASURA_EXTERNAL_PORT=8080
 ```
+
+**Important Notes:**
+- Chain ID for Monad Testnet is **10143** (not 41454)
+- Use **HyperSync** URL for faster indexing: `https://monad-testnet.hypersync.xyz`
+- RPC URL (if needed): `https://testnet-rpc.monad.xyz`
+- HyperRPC URL (alternative): `https://monad-testnet.rpc.hypersync.xyz`
 
 Use environment variables in config:
 
 ```yaml
 networks:
-  - id: ${ENVIO_CHAIN_ID:-41454}
-    rpc_config:
+  - id: 10143
+    hypersync_config:
       url: ${ENVIO_RPC_URL:-https://testnet.monad.xyz}
 ```
 
@@ -308,16 +318,26 @@ This creates TypeScript types in `generated/` directory.
 
 ## Part 4: Event Handlers
 
+**Important: Event Object Structure**
+
+The `event` object passed to handlers has this structure:
+- `event.params` - Event-specific parameters (owner, spender, value, etc.)
+- `event.srcAddress` - Contract address that emitted the event
+- `event.logIndex` - Log index within the block
+- `event.chainId` - Network chain ID
+- `event.block.number` - Block number (nested!)
+- `event.block.timestamp` - Block timestamp (nested!)
+- `event.block.hash` - Block hash (nested!)
+- `event.transaction.hash` - Transaction hash (nested!)
+- `event.transaction.from` - Transaction sender (nested!)
+
+**Always use nested access:** `event.block.number`, NOT `event.blockNumber`
+
 ### 4.1 ERC20 Approval Handler
 
-```typescript
-// backend/src/EventHandlers.ts
-import {
-  ERC20Token,
-  TokenApproval,
-  TokenMetadata,
-  WalletHealth,
-} from "../generated/src/Types.gen";
+```javascript
+// backend/src/EventHandlers.js
+const { ERC20Token } = require("generated");
 
 // Maximum approval amount (2^256 - 1)
 const MAX_UINT256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -961,25 +981,74 @@ pnpm test:integration
 
 ## Troubleshooting
 
-### Indexer Not Starting
-- Check Docker is running
-- Verify `config.yaml` syntax
-- Check RPC URL is accessible
+### Indexer Not Starting / Stuck at "No new blocks detected"
+
+**Problem:** Indexer shows `currentBlockHeight: 0` or stuck with checkpoints at `-1`
+
+**Solutions:**
+1. **Wrong Chain ID** - Must use `10143` for Monad Testnet (NOT 41454)
+2. **Wrong URL** - Use HyperSync URL: `https://monad-testnet.hypersync.xyz`
+3. **Cached state** - Reset database:
+   ```bash
+   docker-compose -f generated/docker-compose.yaml down -v
+   docker-compose -f generated/docker-compose.yaml up -d
+   pnpm envio start
+   ```
+
+### Event Handler Errors: "Cannot read properties of undefined"
+
+**Problem:** `TypeError: Cannot read properties of undefined (reading 'hash')`
+
+**Solution:** Use correct event object structure with nested fields:
+```javascript
+// ❌ Wrong
+const txHash = event.transactionHash;
+const blockNum = event.blockNumber;
+
+// ✅ Correct
+const txHash = event.transaction.hash;
+const blockNum = event.block.number;
+const blockTime = event.block.timestamp;
+```
+
+### Event Handler Errors: "Cannot convert undefined to a BigInt"
+
+**Problem:** Trying to convert undefined value to BigInt
+
+**Solution:** Always access nested block/transaction fields:
+```javascript
+// ❌ Wrong
+blockTimestamp: BigInt(event.timestamp)
+
+// ✅ Correct
+blockTimestamp: BigInt(event.block.timestamp)
+```
+
+### Docker Compose Errors
+
+**Problem:** `unknown shorthand flag: 'd' in -d` or containers not starting
+
+**Solutions:**
+1. Ensure Docker is running: `docker ps`
+2. Use correct command: `docker-compose -f generated/docker-compose.yaml up -d`
+3. If using Docker Compose v2: `docker compose up -d`
 
 ### Events Not Indexing
-- Verify contract address is correct
-- Check start_block is before contract deployment
-- Ensure event signatures match ABI
+- Verify contract address is correct and deployed on Monad Testnet
+- Check `start_block` is before contract deployment
+- Ensure event signatures match ABI exactly
+- Verify tokens have activity (Approval/Transfer events)
 
 ### Slow Indexing
-- Enable `preload_handlers: true`
-- Use HyperSync (automatic)
-- Reduce field_selection
+- Use HyperSync instead of RPC: `hypersync_config` instead of `rpc_config`
+- Enable `preload_handlers: true` in config
+- Use `address_format: lowercase` for better performance
 
-### Query Timeouts
-- Add pagination to large queries
-- Use indexes in schema
-- Limit query depth
+### Config.yaml Errors
+
+**Problem:** `unknown field 'field_selection'`
+
+**Solution:** Remove `field_selection` - it's not supported in current Envio version. Block and transaction fields are automatically included.
 
 ---
 
