@@ -3,7 +3,6 @@ import { Chain } from 'viem';
 export const monadTestnet: Chain = {
   id: 41454,
   name: 'Monad Testnet',
-  network: 'monad-testnet',
   nativeCurrency: {
     name: 'Monad',
     symbol: 'MON',
